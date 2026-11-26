@@ -6,6 +6,12 @@ Airlock audits medical bills, residential leases, and employment/severance agree
 
 Built for **#BuildHybridAI 2026**. Apache-2.0. 100% free tier: no Blaze, no billing, no Google Search Grounding, no backend.
 
+## Live demo
+
+**https://airlock-515916.web.app** — Firebase project `airlock-515916` (Spark free tier).
+
+The hosted build uses Anonymous Auth, Firestore, Remote Config, and Firebase AI Logic. The live cloud audit was verified end-to-end with `gemini-3.5-flash-lite` after the `gemini-4-hydrogen` free-tier fallback.
+
 ---
 
 ## Why hybrid inference is mandatory
