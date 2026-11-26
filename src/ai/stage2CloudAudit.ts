@@ -22,7 +22,7 @@ import {
 import { detectPii } from "../vault/piiFirewall";
 import { TOKEN_SCAN } from "../vault/rehydrate";
 import { assertWirePayload, byteSize, type WirePayload } from "../vault/wireBoundary";
-import { firebaseEnabled } from "./firebaseConfig";
+import { firebaseEnabled, getFirebaseRuntime, isLocalhost } from "./firebaseConfig";
 import {
   extractResponseText,
   getCloudAuditorModel,
@@ -65,8 +65,16 @@ export class CloudAuditError extends Error {
 
 function hintFor(kind: CloudErrorKind): string {
   switch (kind) {
-    case "app_check":
-      return "App Check rejected the request. Disable ad blockers/privacy extensions for this site, reload, or use the cached demo result.";
+    case "app_check": {
+      const runtime = getFirebaseRuntime();
+      if (!runtime?.appCheck) {
+        return "App Check is enforced on Firebase AI Logic, but VITE_FIREBASE_APPCHECK_SITE_KEY is empty in .env. Register a Google Cloud Fraud Defense (reCAPTCHA Enterprise) site key in Firebase Console → App Check, add it to .env, and restart the dev server (or use the cached demo result).";
+      }
+      if (isLocalhost()) {
+        return "App Check rejected this localhost request. Open DevTools Console, copy the printed App Check debug token, and register it in Firebase Console → App Check → Apps → Manage debug tokens.";
+      }
+      return "App Check rejected the request. Disable ad blockers or Brave Shields for this site, reload, or use the cached demo result.";
+    }
     case "rate_limit":
       return "The free-tier Gemini quota was hit. Wait a minute and retry, or use the cached demo result.";
     case "timeout":

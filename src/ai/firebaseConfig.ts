@@ -14,7 +14,7 @@ import {
 import { getRemoteConfig, type RemoteConfig } from "firebase/remote-config";
 import {
   initializeAppCheck,
-  ReCaptchaV3Provider,
+  ReCaptchaEnterpriseProvider,
   type AppCheck,
 } from "firebase/app-check";
 import { logRequest } from "../services/telemetry";
@@ -140,7 +140,7 @@ export async function initFirebase(): Promise<FirebaseRuntime | null> {
             }
           }
           appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider(appCheckSiteKey),
+            provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
             isTokenAutoRefreshEnabled: true,
           });
         } catch (error) {
@@ -148,7 +148,7 @@ export async function initFirebase(): Promise<FirebaseRuntime | null> {
         }
       } else {
         appCheckError =
-          "App Check is not configured (VITE_FIREBASE_APPCHECK_SITE_KEY missing). Cloud calls may be rejected until you register a reCAPTCHA v3 site key.";
+          "App Check is not configured (VITE_FIREBASE_APPCHECK_SITE_KEY missing). Cloud calls may be rejected until you register a Google Cloud Fraud Defense (reCAPTCHA Enterprise) site key.";
       }
 
       const auth = getAuth(app);
@@ -196,7 +196,7 @@ export async function initFirebase(): Promise<FirebaseRuntime | null> {
       logRequest({
         kind: "app_check",
         label: appCheck ? "App Check initialized" : "App Check not initialized",
-        detail: appCheckError ?? "reCAPTCHA v3 token refresh enabled",
+        detail: appCheckError ?? "Fraud Defense (reCAPTCHA Enterprise) token refresh enabled",
         status: appCheck ? "ok" : "error",
       });
       logRequest({

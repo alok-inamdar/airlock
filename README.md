@@ -57,7 +57,7 @@ The hosted build uses Anonymous Auth, Firestore, Remote Config, and Firebase AI 
 ### Firebase AI Logic surfaces used
 
 - `firebase/ai` — `GoogleAIBackend`, `InferenceMode.ONLY_ON_DEVICE`, `ONLY_IN_CLOUD`, `PREFER_ON_DEVICE`, `InferenceSource` enum checks, `initializeDeviceModel()` progress, Structured JSON Output.
-- `firebase/app-check` — reCAPTCHA v3 provider plus a localhost-only debug token.
+- `firebase/app-check` — Google Cloud Fraud Defense (reCAPTCHA Enterprise) provider plus a localhost-only debug token.
 - `firebase/auth` — zero-friction anonymous sign-in.
 - `firebase/firestore` — `initializeFirestore({ localCache: persistentLocalCache() })`, zero-PII audits, offline queue.
 - `firebase/remote-config` — live policy toggles with `minimumFetchIntervalMillis: 0`.
@@ -124,7 +124,7 @@ Cold-start downloads are never blocking: the **Use Simulation Mode Now** button 
 2. Add a Web app and copy the config into `.env`.
 3. **Authentication** → Sign-in method → enable **Anonymous**.
 4. **Firestore Database** → create in production mode → deploy `firestore.rules`.
-5. **App Check** → Web app → reCAPTCHA v3 → register your domains. Put the site key in `VITE_FIREBASE_APPCHECK_SITE_KEY`. For localhost, either set `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN` or let the SDK generate a local-only token. Never commit a real token.
+5. **App Check** → Web app → Google Cloud Fraud Defense (reCAPTCHA Enterprise) → register your domains. Put the site key in `VITE_FIREBASE_APPCHECK_SITE_KEY`. For localhost, either set `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN` or let the SDK generate a local-only token. Never commit a real token.
 6. **AI Logic** → get started with the Gemini Developer API on the free tier. No billing upgrade is needed. Do not enable Search Grounding.
 7. **Remote Config** → create the parameters below.
 8. **Hosting** → build and deploy:
@@ -144,7 +144,7 @@ firebase deploy --only hosting,firestore:rules
 | `VITE_FIREBASE_STORAGE_BUCKET` | optional | Storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | optional | Sender ID |
 | `VITE_FIREBASE_APP_ID` | yes | Web app ID (required by Firebase AI Logic) |
-| `VITE_FIREBASE_APPCHECK_SITE_KEY` | recommended | reCAPTCHA v3 site key for App Check |
+| `VITE_FIREBASE_APPCHECK_SITE_KEY` | recommended | Google Cloud Fraud Defense (reCAPTCHA Enterprise) site key for App Check |
 | `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN` | localhost only | Optional fixed debug token; never commit |
 
 The app treats `apiKey + projectId + appId` as the switch. Missing values mean Local Demo Mode, not a broken app.

@@ -352,8 +352,8 @@ function LocalPane({
     <section className="pane border-emerald-400/[0.15] bg-ink-850/70">
       <PaneHeader
         tone="green"
-        label="Local vault"
-        subtitle="Raw document · never leaves this tab"
+        label="1. Your Original (Private)"
+        subtitle="Stays in your browser · never sent"
         icon={<Lock className="h-4 w-4" />}
         right={<Badge tone="green">{modeLabel}</Badge>}
       />
@@ -555,6 +555,26 @@ function RequestLog({ entries, documentBytes }: { entries: RequestLogEntry[]; do
   );
 }
 
+function HighlightedSanitizedText({ text }: { text: string }) {
+  const parts = text.split(/(\[[A-Z][A-Z0-9_]*_\d+\])/g);
+  return (
+    <div className="whitespace-pre-wrap break-words rounded-xl border border-white/[0.06] bg-ink-950/60 p-3.5 font-sans text-[12px] leading-[1.75] text-ink-200">
+      {parts.map((part, index) =>
+        /^\[[A-Z][A-Z0-9_]*_\d+\]$/.test(part) ? (
+          <span
+            key={index}
+            className="mono mx-0.5 rounded bg-amber-400/15 px-1 py-0.5 text-[11px] font-semibold text-amber-200"
+          >
+            {part}
+          </span>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      )}
+    </div>
+  );
+}
+
 function WirePane({
   wire,
   stats,
@@ -568,42 +588,51 @@ function WirePane({
   documentBytes: number;
   onCopyWire: () => void;
 }) {
+  const [view, setView] = useState<"readable" | "technical">("readable");
+
   return (
     <section className="pane border-amber-400/[0.15] bg-ink-850/70">
       <PaneHeader
         tone="amber"
-        label="The wire"
-        subtitle="Exact WirePayload · the only document object that can leave"
+        label="2. Safe to Send (Anonymized)"
+        subtitle="Only this scrubbed version leaves your browser"
         icon={<ArrowLeftRight className="h-4 w-4" />}
-        right={<Badge tone="amber">WirePayload</Badge>}
+        right={<Badge tone={stats.firewallPassed ? "green" : "red"}>{stats.firewallPassed ? "Safe" : "Blocked"}</Badge>}
       />
 
-      <div className="pane-scroll space-y-3 px-4 py-3.5">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-            <div className="flex items-center gap-1 text-[9.5px] uppercase tracking-[0.12em] text-ink-500">
-              <CheckCircle2 className="h-3 w-3" /> Scrubbed
-            </div>
-            <div className="mt-0.5 text-[15px] font-semibold text-ink-100">
-              {stats.entities} <span className="text-[10px] font-normal text-ink-400">identifiers</span>
-            </div>
-            <div className="text-[9.5px] text-ink-500">{stats.regexCatches} regex catches</div>
-          </div>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-            <div className="flex items-center gap-1 text-[9.5px] uppercase tracking-[0.12em] text-ink-500">
-              <Layers className="h-3 w-3" /> Payload
-            </div>
-            <div className="mt-0.5 text-[15px] font-semibold text-ink-100">
-              −{stats.payloadReduction}%
-              <span className="ml-1 text-[10px] font-normal text-ink-400">reduction</span>
-            </div>
-            <div className="text-[9.5px] text-ink-500">{formatBytes(stats.wireBytes)} on the wire</div>
-          </div>
+      <div className="border-b border-white/[0.06] px-4 py-2.5">
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-ink-950/60 p-1">
+          <button
+            type="button"
+            onClick={() => setView("readable")}
+            className={cx(
+              "rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors",
+              view === "readable"
+                ? "bg-amber-400/15 text-amber-100"
+                : "text-ink-400 hover:text-ink-200"
+            )}
+          >
+            Readable Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("technical")}
+            className={cx(
+              "rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition-colors",
+              view === "technical"
+                ? "bg-amber-400/15 text-amber-100"
+                : "text-ink-400 hover:text-ink-200"
+            )}
+          >
+            Raw JSON &amp; Log
+          </button>
         </div>
+      </div>
 
+      <div className="pane-scroll space-y-3 px-4 py-3.5">
         <div
           className={cx(
-            "flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[10.5px]",
+            "flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[11px]",
             stats.firewallPassed
               ? "border-emerald-400/20 bg-emerald-400/[0.05] text-emerald-200"
               : "border-rose-400/30 bg-rose-400/[0.08] text-rose-200"
@@ -611,84 +640,75 @@ function WirePane({
         >
           <span className="flex items-center gap-1.5 font-semibold">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Regex PII firewall: {stats.firewallPassed ? "PASSED" : "FAILED"}
+            Privacy firewall: {stats.firewallPassed ? "PASSED" : "FAILED"}
           </span>
-          <span className="text-[9.5px] opacity-70">runs inside toWire()</span>
+          <span className="text-[10px] opacity-80">{stats.entities} details hidden</span>
         </div>
 
-        {Object.keys(wire.roleHints).length > 0 ? (
-          <div>
-            <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-ink-500">
-              Role hints
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.entries(wire.roleHints).map(([token, role]) => (
-                <span
-                  key={token}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px]"
+        {view === "readable" ? (
+          <>
+            <p className="text-[11.5px] leading-relaxed text-ink-400">
+              Every highlighted placeholder below (like <span className="mono text-amber-200">[PERSON_1]</span>) replaces your real info. Only this text is sent for auditing.
+            </p>
+            <HighlightedSanitizedText text={wire.sanitizedText} />
+
+            {Object.keys(wire.roleHints).length > 0 ? (
+              <div>
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-500">
+                  Role labels kept for context
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(wire.roleHints).map(([token, role]) => (
+                    <span
+                      key={token}
+                      className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-[10.5px]"
+                    >
+                      <span className="mono text-[10px] text-ink-300">{token}</span>
+                      <ArrowRight className="h-2.5 w-2.5 text-ink-500" />
+                      <span className="text-ink-300">{role}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-500">
+                  <Code2 className="h-3 w-3" /> Exact WirePayload JSON
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onCopyWire}
+                  icon={<Copy className="h-3 w-3" />}
+                  className="h-6 px-2 text-[10px]"
                 >
-                  <span className="mono text-[9.5px] text-ink-300">{token}</span>
-                  <ArrowRight className="h-2.5 w-2.5 text-ink-500" />
-                  <span className="text-ink-400">{role}</span>
-                </span>
-              ))}
+                  Copy JSON
+                </Button>
+              </div>
+              <JsonView value={wire} className="max-h-[280px] overflow-y-auto" ariaLabel="Wire payload JSON" />
             </div>
-          </div>
-        ) : null}
 
-        {wire.extractedItems.length > 0 ? (
-          <div>
-            <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-ink-500">
-              Extracted items ({wire.extractedItems.length})
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {wire.extractedItems.slice(0, 5).map((item, index) => (
-                <span
-                  key={`${item.refCode ?? "item"}-${index}`}
-                  className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9.5px] text-ink-300"
-                  title={item.description}
-                >
-                  {item.refCode ? <span className="mono">{item.refCode}</span> : null}
-                  {item.amount ? <span className="ml-1 text-emerald-300">{formatUsd(item.amount)}</span> : null}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
+            <RequestLog entries={requestLog} documentBytes={documentBytes} />
 
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-ink-500">
-              <Code2 className="h-3 w-3" /> Exact payload
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onCopyWire}
-              icon={<Copy className="h-3 w-3" />}
-              className="h-6 px-2 text-[10px]"
-            >
-              Copy JSON
-            </Button>
-          </div>
-          <JsonView value={wire} className="max-h-[280px] overflow-y-auto" ariaLabel="Wire payload JSON" />
-        </div>
-
-        <RequestLog entries={requestLog} documentBytes={documentBytes} />
-
-        <p className="text-[9.5px] leading-relaxed text-ink-500">
-          Runtime guard: only <span className="mono">documentType</span>,{" "}
-          <span className="mono">jurisdiction</span>, <span className="mono">sanitizedText</span>,{" "}
-          <span className="mono">roleHints</span>, and <span className="mono">extractedItems</span>{" "}
-          are serialized. Raw entities never enter this object.
-        </p>
+            <p className="text-[10px] leading-relaxed text-ink-500">
+              Runtime guard: only <span className="mono">documentType</span>,{" "}
+              <span className="mono">jurisdiction</span>, <span className="mono">sanitizedText</span>,{" "}
+              <span className="mono">roleHints</span>, and <span className="mono">extractedItems</span>{" "}
+              are serialized. Raw entities never enter this object.
+            </p>
+          </>
+        )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] bg-amber-400/[0.04] px-4 py-2 text-[10px] text-amber-200/80">
+      <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] bg-amber-400/[0.04] px-4 py-2 text-[10.5px] text-amber-200/80">
         <span className="flex items-center gap-1.5">
-          <ArrowLeftRight className="h-3 w-3" /> Local scrub → wire
+          <ArrowLeftRight className="h-3 w-3" /> {formatBytes(stats.wireBytes)} payload
         </span>
-        <span>{formatNumber(wire.sanitizedText.length)} sanitized chars</span>
+        <span>{formatNumber(wire.sanitizedText.length)} anonymized chars</span>
       </div>
     </section>
   );
@@ -983,12 +1003,28 @@ function AuditPane({
     <section className="pane border-blue-400/[0.15] bg-ink-850/70">
       <PaneHeader
         tone="blue"
-        label="Cloud audit"
-        subtitle="Rule-backed findings · local rehydration"
+        label="3. Audit & Dispute Letter"
+        subtitle="2026 rules check · names restored locally"
         icon={<Cloud className="h-4 w-4" />}
         right={
-          <Badge tone={auditState === "running" ? "blue" : audit ? "green" : "slate"}>
-            {auditState === "running" ? "in flight" : audit ? audit.source.replace("_", " ") : "awaiting approval"}
+          <Badge
+            tone={
+              auditState === "running"
+                ? "blue"
+                : auditState === "error"
+                  ? "red"
+                  : audit
+                    ? "green"
+                    : "slate"
+            }
+          >
+            {auditState === "running"
+              ? "auditing…"
+              : auditState === "error"
+                ? "failed"
+                : audit
+                  ? audit.source.replace("_", " ")
+                  : "ready to approve"}
           </Badge>
         }
       />
@@ -1162,40 +1198,53 @@ function AuditPane({
 }
 
 export function AirlockXRay(props: AirlockXRayProps) {
-  const { stats, audit } = props;
-  const topBadges = [
-    { label: `${stats.entities} scrubbed`, tone: "green" as const },
-    { label: `−${stats.payloadReduction}% payload`, tone: "amber" as const },
-    { label: stats.firewallPassed ? "Firewall passed" : "Firewall failed", tone: stats.firewallPassed ? "green" as const : "red" as const },
-  ];
+  const { stats, audit, auditState } = props;
 
   return (
-    <div className="animate-fade-in space-y-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-400/25 bg-emerald-400/10">
-            <ScanLine className="h-3.5 w-3.5 text-emerald-300" />
+    <div className="animate-fade-in space-y-4">
+      {/* Clear guided next-step bar */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.05] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/15">
+            <ShieldCheck className="h-4 w-4 text-emerald-300" />
           </span>
-          <div>
-            <h2 className="text-[13px] font-semibold text-ink-100">Airlock X-Ray</h2>
-            <p className="text-[10.5px] text-ink-400">
-              {props.documentLabel} · {DOCUMENT_TYPE_LABELS[props.wire.documentType]}
+          <div className="min-w-0">
+            <h2 className="text-[13.5px] font-semibold text-ink-100">
+              {auditState === "idle"
+                ? `We hid ${stats.entities} personal details on your device — ready to audit?`
+                : auditState === "running"
+                  ? "Auditing the anonymized document against 2026 rules…"
+                  : auditState === "done" && audit
+                    ? `Audit complete — ${audit.findings.length} issue(s) found & letter ready`
+                    : auditState === "queued"
+                      ? "Offline triage done — queued for full cloud audit"
+                      : "Cloud audit ran into an issue"}
+            </h2>
+            <p className="mt-0.5 text-[12px] text-ink-300">
+              {auditState === "idle"
+                ? "Review Pane 2 (Safe to Send). Click any word in Pane 1 to hide more, then approve."
+                : `${props.documentLabel} · ${DOCUMENT_TYPE_LABELS[props.wire.documentType]} · ${props.wire.jurisdiction}`}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {topBadges.map((badge) => (
-            <Badge key={badge.label} tone={badge.tone}>
-              {badge.label}
-            </Badge>
-          ))}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {auditState === "idle" ? (
+            <Button
+              size="md"
+              variant="primary"
+              onClick={props.onApprove}
+              icon={<Cloud className="h-4 w-4" />}
+            >
+              {props.online ? "Approve & Run Cloud Audit" : "Run Offline Triage"}
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="ghost"
             onClick={props.onNewDocument}
             icon={<RotateCcw className="h-3.5 w-3.5" />}
           >
-            New Document
+            Start Over
           </Button>
         </div>
       </div>

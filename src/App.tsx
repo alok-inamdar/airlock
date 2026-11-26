@@ -7,6 +7,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  BookOpen,
+  Check,
   Cloud,
   Eraser,
   FlaskConical,
@@ -82,6 +84,8 @@ import { RULE_PACK_DISCLAIMER } from "./rules/rulePacks2026";
 import { AirlockXRay, type AuditPaneState, type XRayStats } from "./components/AirlockXRay";
 import { CapabilityBanner } from "./components/CapabilityBanner";
 import { DocumentIngest } from "./components/DocumentIngest";
+import { TutorialModal } from "./components/TutorialModal";
+import { SAMPLES } from "./samples";
 import {
   Badge,
   Button,
@@ -205,6 +209,23 @@ export default function App() {
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [tutorialOpen, setTutorialOpen] = useState<boolean>(() => {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      return localStorage.getItem("airlock.tutorial-seen.v1") !== "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const closeTutorial = useCallback(() => {
+    setTutorialOpen(false);
+    try {
+      localStorage.setItem("airlock.tutorial-seen.v1", "1");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const online = useOnlineStatus();
   const capabilities = useCapabilities();
@@ -841,33 +862,28 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
-          <div className="flex items-center gap-2.5">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
+          <button
+            type="button"
+            onClick={() => (stage !== "ingest" ? resetSession() : undefined)}
+            className="flex items-center gap-2.5 text-left"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-300/30 bg-gradient-to-br from-emerald-300 to-teal-500 shadow-[0_10px_30px_-14px_rgba(16,185,129,0.9)]">
               <ShieldCheck className="h-[18px] w-[18px] text-ink-950" />
             </span>
             <div>
-              <div className="text-[14px] font-semibold tracking-tight text-ink-100">Airlock</div>
-              <div className="text-[9.5px] uppercase tracking-[0.16em] text-ink-500">
-                Hybrid privacy firewall
-              </div>
+              <div className="text-[14.5px] font-semibold tracking-tight text-ink-100">Airlock</div>
+              <div className="text-[10px] text-ink-400">Private Document Auditor</div>
             </div>
-          </div>
+          </button>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
-            <Badge tone={firebaseEnabled ? (firebaseStatus === "ready" ? "green" : "amber") : "amber"}>
-              {firebaseEnabled
-                ? firebaseStatus === "ready"
-                  ? "Firebase connected"
-                  : firebaseStatus === "error"
-                    ? "Firebase error"
-                    : "Connecting"
-                : "Local Demo Mode"}
-            </Badge>
-            <Badge tone={online ? "green" : "amber"}>
-              {online ? "Online" : <><WifiOff className="h-3 w-3" /> Offline</>}
-            </Badge>
+            {!online ? (
+              <Badge tone="amber">
+                <WifiOff className="h-3 w-3" /> Offline
+              </Badge>
+            ) : null}
             {queueCount > 0 ? (
               <Button
                 size="sm"
@@ -880,28 +896,86 @@ export default function App() {
             ) : null}
             <Button
               size="sm"
-              variant="ghost"
-              onClick={() => setConfirm("wipe")}
-              disabled={vaultCount === 0}
-              icon={<Eraser className="h-3.5 w-3.5" />}
+              variant="secondary"
+              onClick={() => setTutorialOpen(true)}
+              icon={<BookOpen className="h-3.5 w-3.5 text-emerald-300" />}
             >
-              <span className="hidden sm:inline">Wipe Local Vault</span>
+              How It Works
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setConfirm("delete")}
-              disabled={auditCount === 0}
-              icon={<Trash2 className="h-3.5 w-3.5" />}
-            >
-              <span className="hidden sm:inline">Delete All Audits</span>
-              {auditCount > 0 ? <span className="text-[10px] text-ink-500">({auditCount})</span> : null}
-            </Button>
+            {vaultCount > 0 ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirm("wipe")}
+                icon={<Eraser className="h-3.5 w-3.5" />}
+              >
+                <span className="hidden sm:inline">Wipe Vault</span>
+              </Button>
+            ) : null}
+            {auditCount > 0 ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirm("delete")}
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+              >
+                <span className="hidden sm:inline">Delete Audits</span>
+                <span className="text-[10px] text-ink-500">({auditCount})</span>
+              </Button>
+            ) : null}
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1500px] flex-1 space-y-4 px-4 py-4 sm:px-6 sm:py-5">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-4 px-4 py-4 sm:px-6 sm:py-5">
+        <nav aria-label="Workflow steps" className="grid grid-cols-3 gap-2">
+          {[
+            { num: 1, title: "Choose Document", sub: "Sample, paste, or PDF" },
+            { num: 2, title: "Review Privacy", sub: "Check what stays hidden" },
+            { num: 3, title: "Audit & Letter", sub: "Findings + dispute draft" },
+          ].map((item) => {
+            const currentStep =
+              stage === "ingest" || stage === "scrubbing"
+                ? 1
+                : auditState === "done" || auditState === "queued"
+                  ? 3
+                  : 2;
+            const done = item.num < currentStep;
+            const active = item.num === currentStep;
+            return (
+              <div
+                key={item.num}
+                className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors ${
+                  active
+                    ? "border-emerald-400/35 bg-emerald-400/[0.07]"
+                    : done
+                      ? "border-white/[0.08] bg-white/[0.03]"
+                      : "border-white/[0.05] bg-white/[0.015] opacity-60"
+                }`}
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                    done
+                      ? "bg-emerald-400/20 text-emerald-200"
+                      : active
+                        ? "bg-emerald-400 text-ink-950"
+                        : "bg-white/10 text-ink-400"
+                  }`}
+                >
+                  {done ? <Check className="h-3.5 w-3.5" /> : item.num}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[12px] font-semibold text-ink-100">
+                    {item.title}
+                  </div>
+                  <div className="hidden truncate text-[10.5px] text-ink-400 sm:block">
+                    {item.sub}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
         <CapabilityBanner
           snapshot={capabilities.snapshot}
           firebaseStatus={firebaseStatus}
@@ -985,6 +1059,7 @@ export default function App() {
             nanoStatus={capabilities.snapshot.nanoStatus}
             initial={document}
             onScrub={(input) => void handleScrub(input)}
+            onOpenTutorial={() => setTutorialOpen(true)}
           />
         )}
 
@@ -1061,6 +1136,23 @@ export default function App() {
         busy={dialogBusy}
         onConfirm={() => void handleDeleteAudits()}
         onCancel={() => setConfirm(null)}
+      />
+
+      <TutorialModal
+        open={tutorialOpen}
+        onClose={closeTutorial}
+        onTryDemo={() => {
+          const erSample = SAMPLES[0];
+          if (erSample) {
+            void handleScrub({
+              text: erSample.text,
+              documentType: erSample.documentType,
+              jurisdiction: erSample.jurisdiction,
+              label: erSample.label,
+              sampleId: erSample.id,
+            });
+          }
+        }}
       />
 
       <ToastStack

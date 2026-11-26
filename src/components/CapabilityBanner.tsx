@@ -1,6 +1,9 @@
+import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CloudOff,
   DownloadCloud,
   FlaskConical,
@@ -41,7 +44,7 @@ interface BannerCopy {
   tone: BannerTone;
   icon: typeof ShieldCheck;
   title: string;
-  body: string;
+  summary: string;
 }
 
 function copyFor(props: CapabilityBannerProps): BannerCopy {
@@ -51,9 +54,8 @@ function copyFor(props: CapabilityBannerProps): BannerCopy {
     return {
       tone: "amber",
       icon: AlertTriangle,
-      title: "Firebase could not initialize",
-      body:
-        "Airlock fell back to Local Demo Mode so you can still walk the full pipeline. Fix the environment variables or console setup to enable live Gemini calls.",
+      title: "Local Demo Mode",
+      summary: "Firebase could not connect, so everything runs locally with preview results.",
     };
   }
   if (firebaseStatus === "disabled") {
@@ -61,89 +63,68 @@ function copyFor(props: CapabilityBannerProps): BannerCopy {
       tone: "amber",
       icon: FlaskConical,
       title: "Local Demo Mode",
-      body:
-        "No Firebase credentials are configured, so nothing is sent to Google. Scrubbing, rehydration, the offline queue, and Remote Config defaults all run locally; cloud audits are clearly labeled cached demo results.",
+      summary: "Everything runs locally in your browser using built-in preview audits.",
     };
   }
-  if (firebaseStatus === "initializing") {
+  if (firebaseStatus === "initializing" || snapshot.nanoStatus === "checking") {
     return {
       tone: "blue",
       icon: Loader2,
-      title: "Connecting to Firebase",
-      body: "Initializing Anonymous Auth, App Check, Firestore persistent cache, and Remote Config.",
-    };
-  }
-  if (snapshot.nanoStatus === "checking") {
-    return {
-      tone: "blue",
-      icon: Loader2,
-      title: "Checking on-device capability",
-      body:
-        "Probing Chrome's LanguageModel API. Scrubbing starts in Simulation Mode until the probe returns, so nothing blocks the demo.",
+      title: "Checking browser privacy engine…",
+      summary: "You can start right away while Airlock checks on-device AI support.",
     };
   }
   if (downloadProgress !== null) {
     return {
       tone: "blue",
       icon: DownloadCloud,
-      title: "Downloading Gemini Nano 4",
-      body: "Chrome is fetching the on-device model. Keep this tab open; you can switch to Simulation Mode at any time.",
+      title: "Downloading on-device AI (Gemini Nano)",
+      summary: "Keep this tab open, or use Local Browser Scrubber right away.",
     };
   }
   if (snapshot.nanoStatus === "available" && !effectiveSimulation) {
     return {
       tone: "green",
       icon: ShieldCheck,
-      title: "Gemini Nano 4 is ready",
-      body:
-        "Stage 1 scrubbing and Stage 3 tone polish run on-device. Only the scrubbed WirePayload can reach Cloud Gemini, protected by App Check.",
+      title: "On-Device AI Active (Gemini Nano)",
+      summary: "Your browser hides names, SSNs, and addresses locally before anything leaves.",
     };
   }
   if (snapshot.nanoStatus === "available" && effectiveSimulation) {
     return {
       tone: "green",
       icon: Sparkles,
-      title: "Gemini Nano 4 is available",
-      body:
-        "Airlock is currently using Simulation Mode by request. Switch back to Gemini Nano for semantic name, address, and role detection.",
+      title: "Local Scrubber Active (Gemini Nano ready)",
+      summary: "Switch back to Gemini Nano anytime for stronger name and address detection.",
     };
   }
   if (snapshot.nanoStatus === "downloadable") {
     return {
       tone: "blue",
       icon: DownloadCloud,
-      title: "Gemini Nano needs a one-time download",
-      body:
-        "Chrome 148+ can run the on-device model, but it is not downloaded yet. Start the download from this button, or use Simulation Mode immediately.",
+      title: "On-device AI available to download",
+      summary: "Download Gemini Nano once for stronger redaction, or continue with Local Scrubber now.",
     };
   }
   if (snapshot.nanoStatus === "downloading") {
     return {
       tone: "blue",
       icon: DownloadCloud,
-      title: "Chrome is already downloading Gemini Nano",
-      body: "The model is still downloading in this browser. Simulation Mode works right now.",
-    };
-  }
-  if (!snapshot.hasLanguageModelApi) {
-    return {
-      tone: "amber",
-      icon: FlaskConical,
-      title: "Simulation Mode — Chrome's on-device model is unavailable",
-      body:
-        "This browser does not expose the LanguageModel API. Simulation Mode catches structured IDs (SSN, email, phone, card, bank, DOB, MRN) locally in JavaScript, but misses unstructured names, addresses, and rare diagnoses — privacy protection is weaker than Gemini Nano 4.",
+      title: "Gemini Nano is downloading in Chrome",
+      summary: "Local Scrubber is active so you can test Airlock immediately.",
     };
   }
   return {
     tone: "amber",
     icon: FlaskConical,
-    title: "Simulation Mode — on-device model unavailable",
-    body:
-      "Gemini Nano reports unavailable, so Airlock never calls the SDK's local inference path. Structured IDs are still caught locally by regex; names and addresses rely on heuristics and coverage is weaker.",
+    title: "Local Browser Scrubber (Simulation Mode)",
+    summary:
+      "Hides SSNs, emails, phones, cards, and common fields locally. For full AI redaction, open in Chrome 148+.",
   };
 }
 
 export function CapabilityBanner(props: CapabilityBannerProps) {
+  const [expanded, setExpanded] = useState(false);
   const copy = copyFor(props);
   const Icon = copy.icon;
   const {
@@ -167,12 +148,14 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
     downloadProgress === null;
   const nanoAvailable = snapshot.nanoStatus === "available";
   const nanoUsable = firebaseStatus === "ready" && nanoAvailable;
+
   const toneClasses = {
-    green: "border-emerald-400/20 bg-emerald-400/[0.05]",
-    amber: "border-amber-400/25 bg-amber-400/[0.05]",
-    blue: "border-blue-400/20 bg-blue-400/[0.05]",
-    slate: "border-white/10 bg-white/[0.03]",
+    green: "border-emerald-400/20 bg-emerald-400/[0.04]",
+    amber: "border-amber-400/20 bg-amber-400/[0.04]",
+    blue: "border-blue-400/20 bg-blue-400/[0.04]",
+    slate: "border-white/10 bg-white/[0.02]",
   }[copy.tone];
+
   const iconClasses = {
     green: "text-emerald-300 bg-emerald-400/10 border-emerald-400/25",
     amber: "text-amber-300 bg-amber-400/10 border-amber-400/25",
@@ -181,36 +164,37 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
   }[copy.tone];
 
   return (
-    <Card className={cx("animate-fade-in border p-4", toneClasses)}>
-      <div className="flex flex-col gap-3.5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+    <Card className={cx("animate-fade-in border px-3.5 py-2.5", toneClasses)}>
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span
             className={cx(
-              "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
               iconClasses
             )}
           >
             <Icon
-              className={cx("h-[18px] w-[18px]", copy.icon === Loader2 && "animate-spin")}
+              className={cx("h-4 w-4", copy.icon === Loader2 && "animate-spin")}
               aria-hidden
             />
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[13.5px] font-semibold text-ink-100">{copy.title}</h2>
+              <span className="text-[12.5px] font-semibold text-ink-100">{copy.title}</span>
               {!online ? (
                 <Badge tone="amber">
                   <WifiOff className="h-3 w-3" /> Offline
                 </Badge>
               ) : null}
+              <span className="hidden text-[12px] text-ink-400 md:inline">
+                — {copy.summary}
+              </span>
             </div>
-            <p className="mt-1 max-w-3xl text-[12.5px] leading-relaxed text-ink-300">
-              {copy.body}
-            </p>
+            <p className="mt-0.5 text-[11.5px] text-ink-400 md:hidden">{copy.summary}</p>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {canDownload ? (
             <Button
               size="sm"
@@ -234,102 +218,126 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
               onClick={props.onDisableSimulation}
               icon={<Sparkles className="h-3.5 w-3.5" />}
             >
-              Switch to Nano
+              Use Gemini Nano
             </Button>
           ) : null}
-          {!effectiveSimulation ? (
-            <Button
-              size="sm"
-              variant="amber"
-              onClick={props.onUseSimulation}
-              icon={<FlaskConical className="h-3.5 w-3.5" />}
-            >
-              Use Simulation Mode Now
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={props.onRefreshPolicy}
-            loading={refreshingPolicy}
-            icon={<RefreshCw className="h-3.5 w-3.5" />}
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:bg-white/[0.07] hover:text-ink-100"
           >
-            Refresh Policy
-          </Button>
+            System details
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
         </div>
       </div>
 
       {downloadProgress !== null ? (
-        <div className="mt-3">
+        <div className="mt-2.5">
           <ProgressBar value={downloadProgress} tone="blue" />
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/[0.06] pt-3">
-        <Badge tone={firebaseStatus === "ready" ? "green" : firebaseStatus === "error" ? "red" : "amber"}>
-          {firebaseStatus === "ready" ? (
-            <CheckCircle2 className="h-3 w-3" />
-          ) : firebaseStatus === "disabled" ? (
-            <FlaskConical className="h-3 w-3" />
-          ) : (
-            <CloudOff className="h-3 w-3" />
-          )}
-          {firebaseStatus === "ready"
-            ? "Firebase connected"
-            : firebaseStatus === "disabled"
-              ? "Local Demo Mode"
-              : firebaseStatus === "error"
-                ? "Firebase error"
-                : "Connecting"}
-        </Badge>
-        <Badge tone={appCheckActive ? "green" : "slate"}>
-          <KeyRound className="h-3 w-3" />
-          App Check {appCheckActive ? "active" : "off"}
-        </Badge>
-        <Badge
-          tone={
-            nanoUsable
-              ? "green"
-              : snapshot.nanoStatus === "downloadable" || snapshot.nanoStatus === "downloading"
-                ? "blue"
-                : "amber"
-          }
-        >
-          <Sparkles className="h-3 w-3" />
-          Nano: {snapshot.nanoStatus}
-          {nanoAvailable && !nanoUsable ? " (needs Firebase)" : ""}
-        </Badge>
-        <Badge tone={effectiveSimulation ? "amber" : "green"}>
-          {effectiveSimulation ? "Simulation scrub" : "On-device scrub"}
-        </Badge>
-        <Badge tone={policySource === "remote" ? "green" : "slate"}>
-          Policy: {policySource === "remote" ? "Remote Config" : "bundled defaults"}
-        </Badge>
-        <span className="ml-auto hidden text-[11px] text-ink-500 sm:inline">
-          Zero detected direct identifiers sent to cloud
-        </span>
-      </div>
-
-      {firebaseError ? (
-        <p className="mt-2.5 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-2 text-[12px] text-rose-200">
-          {firebaseError}
-        </p>
-      ) : null}
-      {appCheckError ? (
-        <p className="mt-2.5 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[12px] text-amber-200">
-          <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
-          {appCheckError}
-        </p>
-      ) : null}
       {downloadError ? (
-        <p className="mt-2.5 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-2 text-[12px] text-rose-200">
+        <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-1.5 text-[11.5px] text-rose-200">
           {downloadError}
         </p>
       ) : null}
-      {policyWarnings.length > 0 ? (
-        <p className="mt-2.5 rounded-lg border border-blue-400/20 bg-blue-400/[0.06] px-3 py-2 text-[12px] text-blue-200">
-          {policyWarnings[0]}
-        </p>
+
+      {expanded ? (
+        <div className="mt-3 space-y-2.5 border-t border-white/[0.07] pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge
+                tone={
+                  firebaseStatus === "ready"
+                    ? "green"
+                    : firebaseStatus === "error"
+                      ? "red"
+                      : "amber"
+                }
+              >
+                {firebaseStatus === "ready" ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : firebaseStatus === "disabled" ? (
+                  <FlaskConical className="h-3 w-3" />
+                ) : (
+                  <CloudOff className="h-3 w-3" />
+                )}
+                {firebaseStatus === "ready"
+                  ? "Firebase connected"
+                  : firebaseStatus === "disabled"
+                    ? "Local Demo Mode"
+                    : firebaseStatus === "error"
+                      ? "Firebase error"
+                      : "Connecting"}
+              </Badge>
+              <Badge tone={appCheckActive ? "green" : "slate"}>
+                <KeyRound className="h-3 w-3" />
+                App Check {appCheckActive ? "active" : "off"}
+              </Badge>
+              <Badge
+                tone={
+                  nanoUsable
+                    ? "green"
+                    : snapshot.nanoStatus === "downloadable" ||
+                        snapshot.nanoStatus === "downloading"
+                      ? "blue"
+                      : "amber"
+                }
+              >
+                <Sparkles className="h-3 w-3" />
+                Nano: {snapshot.nanoStatus}
+              </Badge>
+              <Badge tone={effectiveSimulation ? "amber" : "green"}>
+                {effectiveSimulation ? "Simulation scrub" : "On-device scrub"}
+              </Badge>
+              <Badge tone={policySource === "remote" ? "green" : "slate"}>
+                Policy: {policySource === "remote" ? "Remote Config" : "defaults"}
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {!effectiveSimulation ? (
+                <Button
+                  size="sm"
+                  variant="amber"
+                  onClick={props.onUseSimulation}
+                  icon={<FlaskConical className="h-3.5 w-3.5" />}
+                >
+                  Use Simulation Mode
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={props.onRefreshPolicy}
+                loading={refreshingPolicy}
+                icon={<RefreshCw className="h-3.5 w-3.5" />}
+              >
+                Refresh Policy
+              </Button>
+            </div>
+          </div>
+
+          {firebaseError ? (
+            <p className="rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-2 text-[12px] text-rose-200">
+              {firebaseError}
+            </p>
+          ) : null}
+          {appCheckError ? (
+            <p className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[12px] text-amber-200">
+              <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
+              {appCheckError}
+            </p>
+          ) : null}
+          {policyWarnings.length > 0 ? (
+            <p className="rounded-lg border border-blue-400/20 bg-blue-400/[0.06] px-3 py-2 text-[12px] text-blue-200">
+              {policyWarnings[0]}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </Card>
   );
