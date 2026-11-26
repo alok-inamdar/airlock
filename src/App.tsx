@@ -9,13 +9,12 @@ import {
 import {
   BookOpen,
   Check,
-  Cloud,
+  ChevronDown,
   Eraser,
   FlaskConical,
-  Loader2,
-  Lock,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   WifiOff,
 } from "lucide-react";
@@ -54,7 +53,6 @@ import { defaultPolicy, loadRemotePolicy, type RemotePolicy } from "./services/r
 import { logRequest, telemetry } from "./services/telemetry";
 import { probeNetwork, useOnlineStatus } from "./lib/connectivity";
 import { createId } from "./lib/ids";
-import { formatBytes, formatNumber } from "./lib/format";
 import {
   removeVaultEntry,
   saveVaultEntry,
@@ -209,6 +207,7 @@ export default function App() {
   const [confirm, setConfirm] = useState<ConfirmKind>(null);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [systemDetailsOpen, setSystemDetailsOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState<boolean>(() => {
     if (typeof localStorage === "undefined") return false;
     try {
@@ -859,10 +858,16 @@ export default function App() {
     scrub?.mode === "on_device" ? "on_device · Nano" : "simulation · local regex";
   const willSimulate =
     capabilities.effectiveSimulation || !firebaseEnabled || firebaseStatus !== "ready";
+  const currentStep =
+    stage === "ingest" || stage === "scrubbing"
+      ? 1
+      : auditState === "done" || auditState === "queued"
+        ? 3
+        : 2;
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-ink-950/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6">
           <button
             type="button"
@@ -877,6 +882,47 @@ export default function App() {
               <div className="text-[10px] text-ink-400">Private Document Auditor</div>
             </div>
           </button>
+
+          <nav
+            aria-label="Workflow steps"
+            className="hidden items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.025] px-2 py-1 lg:flex"
+          >
+            {[
+              { num: 1, title: "Document" },
+              { num: 2, title: "Privacy" },
+              { num: 3, title: "Audit & Letter" },
+            ].map((item, idx) => {
+              const done = item.num < currentStep;
+              const active = item.num === currentStep;
+              return (
+                <div key={item.num} className="flex items-center gap-1">
+                  {idx > 0 ? <span className="px-0.5 text-[11px] text-ink-600">›</span> : null}
+                  <span
+                    className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-medium transition-colors ${
+                      active
+                        ? "bg-emerald-400/15 text-emerald-200"
+                        : done
+                          ? "text-ink-200"
+                          : "text-ink-500"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                        done
+                          ? "bg-emerald-400/20 text-emerald-200"
+                          : active
+                            ? "bg-emerald-400 text-ink-950"
+                            : "bg-white/10 text-ink-400"
+                      }`}
+                    >
+                      {done ? <Check className="h-2.5 w-2.5" /> : item.num}
+                    </span>
+                    {item.title}
+                  </span>
+                </div>
+              );
+            })}
+          </nav>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
             {!online ? (
@@ -894,6 +940,30 @@ export default function App() {
                 {queueCount} queued
               </Button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setSystemDetailsOpen((prev) => !prev)}
+              aria-expanded={systemDetailsOpen}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-medium transition-colors ${
+                systemDetailsOpen
+                  ? "border-white/20 bg-white/10 text-ink-100"
+                  : willSimulate
+                    ? "border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10"
+                    : "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 hover:bg-emerald-400/10"
+              }`}
+            >
+              {willSimulate ? (
+                <FlaskConical className="h-3.5 w-3.5" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">
+                {willSimulate ? "Local Scrubber" : "Gemini Nano"}
+              </span>
+              <ChevronDown
+                className={`h-3 w-3 opacity-70 transition-transform ${systemDetailsOpen ? "rotate-180" : ""}`}
+              />
+            </button>
             <Button
               size="sm"
               variant="secondary"
@@ -928,54 +998,6 @@ export default function App() {
       </header>
 
       <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-4 px-4 py-4 sm:px-6 sm:py-5">
-        <nav aria-label="Workflow steps" className="grid grid-cols-3 gap-2">
-          {[
-            { num: 1, title: "Choose Document", sub: "Sample, paste, or PDF" },
-            { num: 2, title: "Review Privacy", sub: "Check what stays hidden" },
-            { num: 3, title: "Audit & Letter", sub: "Findings + dispute draft" },
-          ].map((item) => {
-            const currentStep =
-              stage === "ingest" || stage === "scrubbing"
-                ? 1
-                : auditState === "done" || auditState === "queued"
-                  ? 3
-                  : 2;
-            const done = item.num < currentStep;
-            const active = item.num === currentStep;
-            return (
-              <div
-                key={item.num}
-                className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors ${
-                  active
-                    ? "border-emerald-400/35 bg-emerald-400/[0.07]"
-                    : done
-                      ? "border-white/[0.08] bg-white/[0.03]"
-                      : "border-white/[0.05] bg-white/[0.015] opacity-60"
-                }`}
-              >
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                    done
-                      ? "bg-emerald-400/20 text-emerald-200"
-                      : active
-                        ? "bg-emerald-400 text-ink-950"
-                        : "bg-white/10 text-ink-400"
-                  }`}
-                >
-                  {done ? <Check className="h-3.5 w-3.5" /> : item.num}
-                </span>
-                <div className="min-w-0">
-                  <div className="truncate text-[12px] font-semibold text-ink-100">
-                    {item.title}
-                  </div>
-                  <div className="hidden truncate text-[10.5px] text-ink-400 sm:block">
-                    {item.sub}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </nav>
         <CapabilityBanner
           snapshot={capabilities.snapshot}
           firebaseStatus={firebaseStatus}
@@ -990,6 +1012,8 @@ export default function App() {
           policyWarnings={policy.warnings}
           refreshingPolicy={refreshingPolicy}
           online={online}
+          detailsOpen={systemDetailsOpen}
+          onCloseDetails={() => setSystemDetailsOpen(false)}
           onStartDownload={() => void capabilities.startDownload()}
           onUseSimulation={capabilities.useSimulationNow}
           onDisableSimulation={capabilities.disableSimulation}
@@ -999,16 +1023,6 @@ export default function App() {
         {ingestError ? (
           <InlineNotice tone="error" title="Local scrub did not run">
             {ingestError}
-          </InlineNotice>
-        ) : null}
-
-        {stage === "xray" && scrub && scrub.warnings.length > 0 ? (
-          <InlineNotice tone="warn" title="Local scrub notes">
-            <ul className="list-inside list-disc space-y-0.5">
-              {scrub.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
           </InlineNotice>
         ) : null}
 
@@ -1063,24 +1077,6 @@ export default function App() {
           />
         )}
 
-        <div className="hidden items-center justify-between gap-3 rounded-xl border border-white/[0.05] bg-white/[0.015] px-3.5 py-2 text-[10px] text-ink-500 sm:flex">
-          <span className="flex items-center gap-1.5">
-            <Lock className="h-3 w-3" />
-            Raw text and the token map are session-only. Cloud stores zero detected direct
-            identifiers.
-          </span>
-          <span className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1">
-              <FlaskConical className="h-3 w-3" /> {formatBytes(scrub?.rawBytes ?? 0)} local
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Cloud className="h-3 w-3" /> {formatBytes(documentBytes)} sent
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Loader2 className="h-3 w-3" /> {formatNumber(auditCount)} audits
-            </span>
-          </span>
-        </div>
       </main>
 
       <footer className="mx-auto w-full max-w-[1500px] px-4 pb-8 sm:px-6">

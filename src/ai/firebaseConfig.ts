@@ -133,10 +133,9 @@ export async function initFirebase(): Promise<FirebaseRuntime | null> {
           if (isLocalhost()) {
             const debugToken = appCheckDebugToken?.trim();
             if (debugToken) {
+              // Only activate debug mode when an explicitly registered token is configured;
+              // otherwise use Fraud Defense (reCAPTCHA Enterprise) directly with localhost allowed.
               window.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
-            } else {
-              // Local-only auto token; the SDK prints it to the console. Never shipped.
-              window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
             }
           }
           appCheck = initializeAppCheck(app, {

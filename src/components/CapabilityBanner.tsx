@@ -1,9 +1,6 @@
-import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   CloudOff,
   DownloadCloud,
   FlaskConical,
@@ -13,6 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
   WifiOff,
+  X,
 } from "lucide-react";
 import type { CapabilitySnapshot } from "../ai/capabilities";
 import type { FirebaseStatus } from "../types";
@@ -32,101 +30,15 @@ export interface CapabilityBannerProps {
   policyWarnings: string[];
   refreshingPolicy: boolean;
   online: boolean;
+  detailsOpen: boolean;
+  onCloseDetails: () => void;
   onStartDownload: () => void;
   onUseSimulation: () => void;
   onDisableSimulation: () => void;
   onRefreshPolicy: () => void;
 }
 
-type BannerTone = "green" | "amber" | "blue" | "slate";
-
-interface BannerCopy {
-  tone: BannerTone;
-  icon: typeof ShieldCheck;
-  title: string;
-  summary: string;
-}
-
-function copyFor(props: CapabilityBannerProps): BannerCopy {
-  const { snapshot, firebaseStatus, effectiveSimulation, downloadProgress } = props;
-
-  if (firebaseStatus === "error") {
-    return {
-      tone: "amber",
-      icon: AlertTriangle,
-      title: "Local Demo Mode",
-      summary: "Firebase could not connect, so everything runs locally with preview results.",
-    };
-  }
-  if (firebaseStatus === "disabled") {
-    return {
-      tone: "amber",
-      icon: FlaskConical,
-      title: "Local Demo Mode",
-      summary: "Everything runs locally in your browser using built-in preview audits.",
-    };
-  }
-  if (firebaseStatus === "initializing" || snapshot.nanoStatus === "checking") {
-    return {
-      tone: "blue",
-      icon: Loader2,
-      title: "Checking browser privacy engine…",
-      summary: "You can start right away while Airlock checks on-device AI support.",
-    };
-  }
-  if (downloadProgress !== null) {
-    return {
-      tone: "blue",
-      icon: DownloadCloud,
-      title: "Downloading on-device AI (Gemini Nano)",
-      summary: "Keep this tab open, or use Local Browser Scrubber right away.",
-    };
-  }
-  if (snapshot.nanoStatus === "available" && !effectiveSimulation) {
-    return {
-      tone: "green",
-      icon: ShieldCheck,
-      title: "On-Device AI Active (Gemini Nano)",
-      summary: "Your browser hides names, SSNs, and addresses locally before anything leaves.",
-    };
-  }
-  if (snapshot.nanoStatus === "available" && effectiveSimulation) {
-    return {
-      tone: "green",
-      icon: Sparkles,
-      title: "Local Scrubber Active (Gemini Nano ready)",
-      summary: "Switch back to Gemini Nano anytime for stronger name and address detection.",
-    };
-  }
-  if (snapshot.nanoStatus === "downloadable") {
-    return {
-      tone: "blue",
-      icon: DownloadCloud,
-      title: "On-device AI available to download",
-      summary: "Download Gemini Nano once for stronger redaction, or continue with Local Scrubber now.",
-    };
-  }
-  if (snapshot.nanoStatus === "downloading") {
-    return {
-      tone: "blue",
-      icon: DownloadCloud,
-      title: "Gemini Nano is downloading in Chrome",
-      summary: "Local Scrubber is active so you can test Airlock immediately.",
-    };
-  }
-  return {
-    tone: "amber",
-    icon: FlaskConical,
-    title: "Local Browser Scrubber (Simulation Mode)",
-    summary:
-      "Hides SSNs, emails, phones, cards, and common fields locally. For full AI redaction, open in Chrome 148+.",
-  };
-}
-
 export function CapabilityBanner(props: CapabilityBannerProps) {
-  const [expanded, setExpanded] = useState(false);
-  const copy = copyFor(props);
-  const Icon = copy.icon;
   const {
     snapshot,
     firebaseStatus,
@@ -140,6 +52,8 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
     policyWarnings,
     refreshingPolicy,
     online,
+    detailsOpen,
+    onCloseDetails,
   } = props;
 
   const canDownload =
@@ -149,106 +63,107 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
   const nanoAvailable = snapshot.nanoStatus === "available";
   const nanoUsable = firebaseStatus === "ready" && nanoAvailable;
 
-  const toneClasses = {
-    green: "border-emerald-400/20 bg-emerald-400/[0.04]",
-    amber: "border-amber-400/20 bg-amber-400/[0.04]",
-    blue: "border-blue-400/20 bg-blue-400/[0.04]",
-    slate: "border-white/10 bg-white/[0.02]",
-  }[copy.tone];
+  // Only show an automatic inline banner when there is an actionable state
+  // (Nano download available/in-progress, download error, or Firebase error).
+  const needsActionBanner =
+    canDownload ||
+    downloadProgress !== null ||
+    Boolean(downloadError) ||
+    firebaseStatus === "error";
 
-  const iconClasses = {
-    green: "text-emerald-300 bg-emerald-400/10 border-emerald-400/25",
-    amber: "text-amber-300 bg-amber-400/10 border-amber-400/25",
-    blue: "text-blue-300 bg-blue-400/10 border-blue-400/25",
-    slate: "text-ink-300 bg-white/[0.05] border-white/10",
-  }[copy.tone];
+  if (!needsActionBanner && !detailsOpen) {
+    return null;
+  }
 
   return (
-    <Card className={cx("animate-fade-in border px-3.5 py-2.5", toneClasses)}>
-      <div className="flex flex-wrap items-center justify-between gap-2.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className={cx(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
-              iconClasses
-            )}
-          >
-            <Icon
-              className={cx("h-4 w-4", copy.icon === Loader2 && "animate-spin")}
-              aria-hidden
-            />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12.5px] font-semibold text-ink-100">{copy.title}</span>
+    <div className="animate-fade-in space-y-2.5">
+      {needsActionBanner ? (
+        <Card
+          className={cx(
+            "border px-3.5 py-2.5",
+            firebaseStatus === "error" || downloadError
+              ? "border-amber-400/25 bg-amber-400/[0.05]"
+              : "border-blue-400/25 bg-blue-400/[0.05]"
+          )}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span
+                className={cx(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
+                  firebaseStatus === "error" || downloadError
+                    ? "border-amber-400/25 bg-amber-400/10 text-amber-300"
+                    : "border-blue-400/25 bg-blue-400/10 text-blue-300"
+                )}
+              >
+                {firebaseStatus === "error" || downloadError ? (
+                  <AlertTriangle className="h-4 w-4" aria-hidden />
+                ) : (
+                  <DownloadCloud className="h-4 w-4" aria-hidden />
+                )}
+              </span>
+              <div className="min-w-0 text-[12.5px]">
+                <span className="font-semibold text-ink-100">
+                  {downloadProgress !== null
+                    ? "Downloading Gemini Nano on-device AI"
+                    : canDownload
+                      ? "On-device AI (Gemini Nano) is ready to download"
+                      : firebaseStatus === "error"
+                        ? "Cloud connection unavailable — using Local Demo Mode"
+                        : "On-device AI download paused"}
+                </span>
+                <span className="ml-1.5 hidden text-ink-400 sm:inline">
+                  {downloadError
+                    ? downloadError
+                    : canDownload
+                      ? "Download once for stronger local redaction, or continue with Local Scrubber."
+                      : downloadProgress !== null
+                        ? "You can keep using Airlock while Chrome finishes downloading."
+                        : firebaseError ?? "Everything still works locally."}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              {canDownload ? (
+                <Button
+                  size="sm"
+                  variant="blue"
+                  onClick={props.onStartDownload}
+                  icon={<DownloadCloud className="h-3.5 w-3.5" />}
+                >
+                  Download Nano
+                </Button>
+              ) : null}
+              {downloadProgress !== null ? (
+                <Badge tone="blue">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {Math.round(downloadProgress * 100)}%
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+
+          {downloadProgress !== null ? (
+            <div className="mt-2">
+              <ProgressBar value={downloadProgress} tone="blue" />
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {detailsOpen ? (
+        <Card className="border border-white/10 bg-ink-850/90 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[11.5px] font-semibold text-ink-200">
+                System status
+              </span>
               {!online ? (
                 <Badge tone="amber">
                   <WifiOff className="h-3 w-3" /> Offline
                 </Badge>
               ) : null}
-              <span className="hidden text-[12px] text-ink-400 md:inline">
-                — {copy.summary}
-              </span>
-            </div>
-            <p className="mt-0.5 text-[11.5px] text-ink-400 md:hidden">{copy.summary}</p>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          {canDownload ? (
-            <Button
-              size="sm"
-              variant="blue"
-              onClick={props.onStartDownload}
-              icon={<DownloadCloud className="h-3.5 w-3.5" />}
-            >
-              Download Nano
-            </Button>
-          ) : null}
-          {downloadProgress !== null ? (
-            <Badge tone="blue">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              {Math.round(downloadProgress * 100)}%
-            </Badge>
-          ) : null}
-          {nanoUsable && effectiveSimulation ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={props.onDisableSimulation}
-              icon={<Sparkles className="h-3.5 w-3.5" />}
-            >
-              Use Gemini Nano
-            </Button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setExpanded((value) => !value)}
-            aria-expanded={expanded}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink-300 transition-colors hover:bg-white/[0.07] hover:text-ink-100"
-          >
-            System details
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {downloadProgress !== null ? (
-        <div className="mt-2.5">
-          <ProgressBar value={downloadProgress} tone="blue" />
-        </div>
-      ) : null}
-
-      {downloadError ? (
-        <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-1.5 text-[11.5px] text-rose-200">
-          {downloadError}
-        </p>
-      ) : null}
-
-      {expanded ? (
-        <div className="mt-3 space-y-2.5 border-t border-white/[0.07] pt-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5">
               <Badge
                 tone={
                   firebaseStatus === "ready"
@@ -291,7 +206,7 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
                 Nano: {snapshot.nanoStatus}
               </Badge>
               <Badge tone={effectiveSimulation ? "amber" : "green"}>
-                {effectiveSimulation ? "Simulation scrub" : "On-device scrub"}
+                {effectiveSimulation ? "Local regex scrubber" : "Gemini Nano active"}
               </Badge>
               <Badge tone={policySource === "remote" ? "green" : "slate"}>
                 Policy: {policySource === "remote" ? "Remote Config" : "defaults"}
@@ -299,6 +214,16 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5">
+              {nanoUsable && effectiveSimulation ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={props.onDisableSimulation}
+                  icon={<ShieldCheck className="h-3.5 w-3.5" />}
+                >
+                  Use Gemini Nano
+                </Button>
+              ) : null}
               {!effectiveSimulation ? (
                 <Button
                   size="sm"
@@ -306,7 +231,7 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
                   onClick={props.onUseSimulation}
                   icon={<FlaskConical className="h-3.5 w-3.5" />}
                 >
-                  Use Simulation Mode
+                  Use Local Scrubber
                 </Button>
               ) : null}
               <Button
@@ -318,27 +243,41 @@ export function CapabilityBanner(props: CapabilityBannerProps) {
               >
                 Refresh Policy
               </Button>
+              <button
+                type="button"
+                onClick={onCloseDetails}
+                aria-label="Close system status"
+                className="rounded-lg p-1 text-ink-400 transition-colors hover:bg-white/[0.06] hover:text-ink-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
 
+          <p className="mt-2 text-[11.5px] text-ink-400">
+            {effectiveSimulation
+              ? "Local Browser Scrubber hides SSNs, emails, phones, cards, and common fields locally. For full on-device AI redaction, open in Chrome 148+."
+              : "Gemini Nano is scrubbing names, addresses, and IDs on-device before any anonymized text is sent to Cloud Gemini."}
+          </p>
+
           {firebaseError ? (
-            <p className="rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-2 text-[12px] text-rose-200">
+            <p className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/[0.06] px-3 py-1.5 text-[11.5px] text-rose-200">
               {firebaseError}
             </p>
           ) : null}
           {appCheckError ? (
-            <p className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[12px] text-amber-200">
+            <p className="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-1.5 text-[11.5px] text-amber-200">
               <AlertTriangle className="mr-1 inline h-3.5 w-3.5" />
               {appCheckError}
             </p>
           ) : null}
           {policyWarnings.length > 0 ? (
-            <p className="rounded-lg border border-blue-400/20 bg-blue-400/[0.06] px-3 py-2 text-[12px] text-blue-200">
+            <p className="mt-2 rounded-lg border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1.5 text-[11.5px] text-blue-200">
               {policyWarnings[0]}
             </p>
           ) : null}
-        </div>
+        </Card>
       ) : null}
-    </Card>
+    </div>
   );
 }
