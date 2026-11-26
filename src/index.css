@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-950 text-ink-200 font-sans antialiased;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(1100px 520px at 12% -8%, rgba(16, 185, 129, 0.11), transparent 62%),
+      radial-gradient(900px 520px at 92% -12%, rgba(59, 130, 246, 0.12), transparent 60%),
+      radial-gradient(700px 420px at 50% 120%, rgba(245, 158, 11, 0.05), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: rgba(52, 211, 153, 0.28);
+    color: #f8fafc;
+  }
+
+  a {
+    @apply text-emerald-300 underline-offset-2 hover:underline;
+  }
+
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(52, 211, 153, 0.7);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #243049 transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #243049;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/[0.07] bg-ink-850/80 shadow-card backdrop-blur-sm;
+  }
+
+  .pane {
+    @apply flex min-h-[520px] flex-col overflow-hidden rounded-2xl border shadow-pane;
+  }
+
+  .pane-scroll {
+    @apply min-h-0 flex-1 overflow-y-auto;
+  }
+
+  .hairline {
+    @apply border-white/[0.07];
+  }
+
+  .mono {
+    @apply font-mono text-[12.5px] leading-relaxed;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-medium text-ink-300;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-white/10 bg-ink-900/80 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-400 focus:border-emerald-400/50 focus:outline-none focus:ring-2 focus:ring-emerald-400/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #111827;
+  }
+}
